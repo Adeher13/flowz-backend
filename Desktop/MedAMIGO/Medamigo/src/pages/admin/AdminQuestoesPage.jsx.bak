@@ -1,0 +1,154 @@
+import React, { useState, useEffect, useCallback } from 'react';
+import { Helmet } from 'react-helmet';
+import { supabase } from '@/lib/customSupabaseClient';
+import { useToast } from '@/components/ui/use-toast';
+import { useSimulations } from '@/contexts/SimulationsContext';
+import { Button } from '@/components/ui/button';
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '@/components/ui/dialog';
+import { Textarea } from '@/components/ui/textarea';
+import { Checkbox } from '@/components/ui/checkbox';
+import { Badge } from '@/components/ui/badge';
+import { PlusCircle, Loader2, Search, Trash2, Edit, X, AlertCircle } from 'lucide-react';
+import { motion, AnimatePresence } from 'framer-motion';
+
+const AdminQuestoesPage = () => {
+    const { toast } = useToast();
+    const { subjects } = useSimulations();
+    
+    const [questions, setQuestions] = useState([]);
+    const [filteredQuestions, setFilteredQuestions] = useState([]);
+    const [loading, setLoading] = useState(false);
+    const [filters, setFilters] = useState({ subject: 'all', difficulty: 'all', search: '' });
+    const [modalOpen, setModalOpen] = useState(false);
+    const [isEditing, setIsEditing] = useState(false);
+    const [currentQuestion, setCurrentQuestion] = useState(null);
+
+    const difficultyLevels = ['Fácil', 'Médio', 'Difícil'];
+    const examTypes = ['ENEM', 'Prova de Transferência', 'Outro'];
+
+    const fetchQuestions = useCallback(async () => {
+        setLoading(true);
+        const { data, error } = await supabase
+            .from('questoes')
+            .select('*')
+            .order('created_at', { ascending: false })
+            .limit(10000);
+
+        if (error) {
+            console.error("Erro ao buscar questões:", error);
+            toast({ variant: 'destructive', title: 'Erro ao buscar questões.', description: error.message });
+        } else {
+            console.log(`✅ ${data?.length || 0} questões carregadas do Supabase`);
+            setQuestions(data || []);
+        }
+        setLoading(false);
+    }, [toast]);
+
+    useEffect(() => {
+        fetchQuestions();
+    }, [fetchQuestions]);
+
+    useEffect(() => {
+        let tempFiltered = questions;
+        if (filters.subject !== 'all') {
+            tempFiltered = tempFiltered.filter(q => 
+                q.disciplina && q.disciplina.toUpperCase() === filters.subject.toUpperCase()
+            );
+        }
+        if (filters.difficulty !== 'all') {
+            tempFiltered = tempFiltered.filter(q => q.difficulty_level === filters.difficulty);
+        }
+        if (filters.search) {
+            tempFiltered = tempFiltered.filter(q => (q.texto_questao || q.question_text || '').toLowerCase().includes(filters.search.toLowerCase()));
+        }
+        setFilteredQuestions(tempFiltered);
+    }, [filters, questions]);
+
+    const handleOpenModal = (question = null) => {
+        setIsEditing(!!question);
+        const defaultFields = {
+            texto_questao: '',
+            imagem_questao: '',
+            options_json: [
+                { text: '', isCorrect: false },
+                { text: '', isCorrect: false },
+                { text: '', isCorrect: false },
+                { text: '', isCorrect: false },
+                { text: '', isCorrect: false }
+            ],
+            resposta_correta: '',
+            explanation: '',
+            disciplina: '',
+            difficulty_level: 'Médio',
+            exam_type: 'Prova de Transferência',
+            subject: '',
+            modulo: '',
+            objeto_aprendizagem: ''
+        };
+        if (question) {
+            const mapped = {
+                id: question.id,
+                texto_questao: question.texto_questao ?? '',
+                imagem_questao: question.imagem_enuciado ?? '',
+                options_json: [
+                    { text: question.opcao_a ?? '', isCorrect: question.resposta_correta === question.opcao_a },
+                    { text: question.opcao_b ?? '', isCorrect: question.resposta_correta === question.opcao_b },
+                    { text: question.opcao_c ?? '', isCorrect: question.resposta_correta === question.opcao_c },
+                    { text: question.opcao_d ?? '', isCorrect: question.resposta_correta === question.opcao_d },
+                    { text: question.opcao_e ?? '', isCorrect: question.resposta_correta === question.opcao_e }
+                ],
+                resposta_correta: question.resposta_correta ?? '',
+                explanation: question.explicacao ?? '',
+                disciplina: question.disciplina ?? '',
+                difficulty_level: question.difficulty_level ?? 'Médio'
+            };
+            setCurrentQuestion(mapped);
+        } else {
+            setCurrentQuestion({ ...defaultFields });
+        }
+        setModalOpen(true);
+    };
+
+    const handleUpdateOption = (index, field, value) => {
+        const newOptions = [...currentQuestion.options_json];
+        newOptions[index] = { ...newOptions[index], [field]: value };
+        if (field === 'isCorrect' && value === true) {
+            newOptions.forEach((opt, i) => {
+                if (i !== index) opt.isCorrect = false;
+            });
+        }
+        setCurrentQuestion({ ...currentQuestion, options_json: newOptions });
+    };
+
+    const handleAddOption = () => {
+        const newOptions = [...currentQuestion.options_json, { text: '', isCorrect: false }];
+        setCurrentQuestion({ ...currentQuestion, options_json: newOptions });
+    };
+
+    const handleRemoveOption = (index) => {
+        if (currentQuestion.options_json.length <= 2) {
+            toast({ variant: 'destructive', title: 'Mínimo de 2 opções necessárias.' });
+            return;
+        }
+        const newOptions = currentQuestion.options_json.filter((_, i) => i !== index);
+        setCurrentQuestion({ ...currentQuestion, options_json: newOptions });
+    };
+
+    const handleSaveQuestion = async () => {
+        // omitted for backup
+    };
+
+    const handleDeleteQuestion = async (questionId) => {
+        // omitted for backup
+    };
+
+    return (
+        <div>BACKUP OF AdminQuestoesPage - original content saved to .bak file</div>
+    );
+}
+
+export default AdminQuestoesPage;

@@ -1,0 +1,155 @@
+╔═══════════════════════════════════════════════════════════════╗
+║   GUIA RÁPIDO - INSTALAÇÃO DO SISTEMA DE ALUNOS             ║
+╚═══════════════════════════════════════════════════════════════╝
+
+📌 ORDEM DE EXECUÇÃO:
+   1-criar-tabela-user-profiles.sql
+   2-criar-bucket-avatars.sql
+   3-criar-usuario-no-dashboard.txt (manual)
+   4-inserir-aluno-teste.sql
+
+
+═══════════════════════════════════════════════════════════════
+
+🔷 PASSO 1: CRIAR TABELA
+═══════════════════════════════════════════════════════════════
+Arquivo: 1-criar-tabela-user-profiles.sql
+
+1. Abra: Supabase → SQL Editor
+2. Copie TODO o conteúdo do arquivo
+3. Cole no editor
+4. Clique em RUN
+5. ✅ Aguarde "Success"
+
+
+🔷 PASSO 2: CRIAR BUCKET PARA AVATARS
+═══════════════════════════════════════════════════════════════
+Arquivo: 2-criar-bucket-avatars.sql
+
+OPÇÃO FÁCIL (Recomendada):
+   1. Supabase → Storage
+   2. "Create a new bucket"
+   3. Name: user-avatars
+   4. Marque: Public bucket ✅
+   5. Create bucket
+
+OPÇÃO SQL:
+   1. Copie o arquivo 2-criar-bucket-avatars.sql
+   2. Cole no SQL Editor
+   3. Execute
+
+
+🔷 PASSO 3: CRIAR USUÁRIO DE TESTE
+═══════════════════════════════════════════════════════════════
+
+1. Supabase → Authentication → Users
+2. "Add user" → "Create new user"
+3. Preencha:
+   ┌─────────────────────────────────────┐
+   │ Email:    joao.silva@teste.com      │
+   │ Password: Teste@123                 │
+   │ ☑ Auto Confirm User                 │
+   └─────────────────────────────────────┘
+4. "Create user"
+5. 📋 COPIE O UUID (ID do usuário criado)
+   
+   Exemplo de UUID:
+   ┌─────────────────────────────────────────┐
+   │ a1b2c3d4-e5f6-7890-abcd-ef1234567890   │
+   └─────────────────────────────────────────┘
+
+
+🔷 PASSO 4: INSERIR PERFIL DO ALUNO
+═══════════════════════════════════════════════════════════════
+Arquivo: 4-inserir-aluno-teste.sql
+
+1. Abra o arquivo 4-inserir-aluno-teste.sql
+2. SUBSTITUA as 2 ocorrências de 'COLE-SEU-UUID-AQUI'
+   pelo UUID copiado no passo 3
+   
+   ANTES:
+   'COLE-SEU-UUID-AQUI'::uuid
+   
+   DEPOIS (exemplo):
+   'a1b2c3d4-e5f6-7890-abcd-ef1234567890'::uuid
+
+3. Copie o SQL completo (após substituir)
+4. Cole no SQL Editor
+5. Execute
+6. ✅ Deve aparecer "Success. Rows: 1"
+
+
+═══════════════════════════════════════════════════════════════
+✅ VERIFICAÇÃO FINAL
+═══════════════════════════════════════════════════════════════
+
+Execute no SQL Editor:
+
+SELECT 
+  up.full_name,
+  up.access_status,
+  up.access_expires_at,
+  ur.role
+FROM user_profiles up
+LEFT JOIN user_roles ur ON ur.user_id = up.user_id
+WHERE up.full_name = 'João Silva';
+
+Resultado esperado:
+┌──────────────┬────────────────┬────────────────────┬─────────┐
+│ full_name    │ access_status  │ access_expires_at  │  role   │
+├──────────────┼────────────────┼────────────────────┼─────────┤
+│ João Silva   │ active         │ 2025-12-21...      │ student │
+└──────────────┴────────────────┴────────────────────┴─────────┘
+
+
+═══════════════════════════════════════════════════════════════
+🧪 TESTAR NA APLICAÇÃO
+═══════════════════════════════════════════════════════════════
+
+1. LOGIN:
+   Email: joao.silva@teste.com
+   Senha: Teste@123
+
+2. COMO ALUNO:
+   → Acesse: /perfil
+   ✅ Deve ver perfil do João Silva
+   ✅ Status: Ativo
+   ✅ 30 dias restantes
+
+3. COMO ADMIN:
+   → Acesse: /admin/alunos
+   ✅ Deve ver João Silva na lista
+   ✅ Pode gerenciar acesso
+
+
+═══════════════════════════════════════════════════════════════
+❓ ERROS COMUNS
+═══════════════════════════════════════════════════════════════
+
+❌ "duplicate key value"
+   → Usuário já tem perfil
+   → Use UPDATE em vez de INSERT
+
+❌ "violates foreign key constraint"
+   → UUID incorreto ou usuário não existe
+   → Verifique se copiou o UUID certo
+
+❌ "relation user_profiles does not exist"
+   → Execute o PASSO 1 primeiro
+
+❌ Avatar não faz upload
+   → Verifique se o bucket foi criado
+   → Execute o PASSO 2
+
+
+═══════════════════════════════════════════════════════════════
+📞 PRECISA DE AJUDA?
+═══════════════════════════════════════════════════════════════
+
+1. Verifique se seguiu a ORDEM correta
+2. Confira se o UUID foi substituído corretamente
+3. Execute a verificação final
+4. Veja os logs de erro no Supabase
+
+
+═══════════════════════════════════════════════════════════════

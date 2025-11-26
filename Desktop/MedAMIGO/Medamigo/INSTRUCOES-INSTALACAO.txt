@@ -1,0 +1,146 @@
+===========================================
+GUIA COMPLETO DE INSTALAÇÃO
+===========================================
+
+📋 PASSO 1: Criar Tabela user_profiles
+-------------------------------------------
+1. Acesse: Supabase Dashboard → SQL Editor
+2. Copie TODO o conteúdo do arquivo: create-user-profiles-table.sql
+3. Cole no SQL Editor
+4. Clique em "Run" (ou Ctrl+Enter)
+5. Aguarde a mensagem de sucesso ✅
+
+📋 PASSO 2: Criar Bucket de Avatars
+-------------------------------------------
+OPÇÃO A - Via Interface (RECOMENDADO):
+1. Acesse: Supabase Dashboard → Storage
+2. Clique em "Create a new bucket"
+3. Nome do bucket: user-avatars
+4. Marque como "Public bucket" ✅
+5. Clique em "Create bucket"
+
+OPÇÃO B - Via SQL:
+1. Acesse: Supabase Dashboard → SQL Editor
+2. Cole o código abaixo:
+
+-- Criar bucket
+INSERT INTO storage.buckets (id, name, public)
+VALUES ('user-avatars', 'user-avatars', true)
+ON CONFLICT (id) DO NOTHING;
+
+3. Execute
+4. Depois vá em Storage → user-avatars → Policies
+5. Adicione as políticas manualmente ou execute as políticas do arquivo create-storage-bucket.sql uma por uma
+
+📋 PASSO 3: Criar Usuário de Teste
+-------------------------------------------
+1. Acesse: Supabase Dashboard → Authentication → Users
+2. Clique em "Add user" → "Create new user"
+3. Preencha:
+   - Email: joao.silva@teste.com
+   - Password: Teste@123
+   - Marque "Auto Confirm User" ✅
+4. Clique em "Create user"
+5. COPIE O UUID que aparece (ex: a1b2c3d4-e5f6-7890-abcd-ef1234567890)
+
+📋 PASSO 4: Inserir Perfil do Aluno
+-------------------------------------------
+1. Acesse: Supabase Dashboard → SQL Editor
+2. Cole o código abaixo SUBSTITUINDO o UUID:
+
+-- ⚠️ SUBSTITUA 'COLE-O-UUID-AQUI' pelo UUID copiado no passo 3
+INSERT INTO user_profiles (
+  user_id,
+  full_name,
+  avatar_url,
+  access_expires_at,
+  access_status
+) VALUES (
+  'COLE-O-UUID-AQUI'::uuid,  -- ⬅️ COLE O UUID AQUI DENTRO DAS ASPAS
+  'João Silva',
+  NULL,
+  NOW() + INTERVAL '30 days',
+  'active'
+);
+
+-- Adicionar role de student
+INSERT INTO user_roles (user_id, role)
+VALUES ('COLE-O-UUID-AQUI'::uuid, 'student');  -- ⬅️ COLE O UUID AQUI TAMBÉM
+
+3. Execute (Run)
+4. Aguarde mensagem de sucesso ✅
+
+📋 PASSO 5: Verificar Instalação
+-------------------------------------------
+Execute este SQL para confirmar:
+
+SELECT 
+  up.full_name,
+  up.access_status,
+  up.access_expires_at,
+  ur.role
+FROM user_profiles up
+LEFT JOIN user_roles ur ON ur.user_id = up.user_id
+WHERE up.full_name = 'João Silva';
+
+Deve retornar 1 linha com os dados do João Silva ✅
+
+===========================================
+EXEMPLO COMPLETO COM UUID FICTÍCIO
+===========================================
+
+Se o UUID copiado foi: a1b2c3d4-e5f6-7890-abcd-ef1234567890
+
+Então o SQL do PASSO 4 ficaria:
+
+INSERT INTO user_profiles (
+  user_id,
+  full_name,
+  avatar_url,
+  access_expires_at,
+  access_status
+) VALUES (
+  'a1b2c3d4-e5f6-7890-abcd-ef1234567890'::uuid,
+  'João Silva',
+  NULL,
+  NOW() + INTERVAL '30 days',
+  'active'
+);
+
+INSERT INTO user_roles (user_id, role)
+VALUES ('a1b2c3d4-e5f6-7890-abcd-ef1234567890'::uuid, 'student');
+
+===========================================
+TESTANDO NA APLICAÇÃO
+===========================================
+
+1. Faça login com:
+   - Email: joao.silva@teste.com
+   - Senha: Teste@123
+
+2. Acesse: /perfil
+   - Deve ver o perfil do João Silva
+   - Status: Ativo
+   - 30 dias restantes
+
+3. Como Admin, acesse: /admin/alunos
+   - Deve ver João Silva na lista
+   - Pode gerenciar o acesso dele
+
+===========================================
+DÚVIDAS FREQUENTES
+===========================================
+
+❓ Onde encontro o UUID?
+→ Após criar o usuário no Authentication, ele aparece na coluna "ID" (UUID)
+
+❓ Posso criar mais alunos?
+→ Sim! Repita os passos 3 e 4 para cada novo aluno
+
+❓ Como fazer um admin?
+→ No user_roles, use role = 'admin' em vez de 'student'
+
+❓ Erro "duplicate key value"?
+→ O usuário já tem perfil. Use UPDATE em vez de INSERT
+
+===========================================
