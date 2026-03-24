@@ -1,0 +1,339 @@
+{
+  "name": "Flowz — Agente IA WhatsApp",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "flowz-ai-agent",
+        "responseMode": "responseNode",
+        "options": {}
+      },
+      "id": "webhook-entrada",
+      "name": "Webhook Entrada",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [240, 300]
+    },
+    {
+      "parameters": {
+        "jsCode": "// Extrai dados do payload enviado pelo Flowz\nconst body = $input.first().json.body || $input.first().json;\n\nconst empresaId      = body.empresaId;\nconst instanceName   = body.instanceName;\nconst remetente      = body.remetente;       // JID: 5511999@s.whatsapp.net\nconst nomeRemetente  = body.nomeRemetente || 'Cliente';\nconst mensagem       = body.mensagem;\nconst historico      = body.historico || []; // [{papel, conteudo}]\nconst mediaBase64    = body.mediaBase64 || null;\nconst mediaType      = body.mediaType || 'texto'; // texto|imagem|audio\n\nreturn [{\n  json: {\n    empresaId,\n    instanceName,\n    remetente,\n    nomeRemetente,\n    mensagem,\n    historico,\n    mediaBase64,\n    mediaType,\n    telefone: remetente.replace('@s.whatsapp.net', '').replace(/\\D/g, ''),\n  }\n}];"
+      },
+      "id": "extrair-dados",
+      "name": "Extrair Dados",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [460, 300]
+    },
+    {
+      "parameters": {
+        "url": "=https://flowz-backend.onrender.com/api/v1/agente-ia/n8n/{{ $json.empresaId }}/configuracao",
+        "options": {}
+      },
+      "id": "buscar-config",
+      "name": "Buscar Config do Agente",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [680, 300]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": { "caseSensitive": false },
+          "conditions": [
+            {
+              "leftValue": "={{ $json.ativo }}",
+              "rightValue": true,
+              "operator": { "type": "boolean", "operation": "equals" }
+            }
+          ]
+        }
+      },
+      "id": "agente-ativo",
+      "name": "Agente Ativo?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [900, 300]
+    },
+    {
+      "parameters": {
+        "jsCode": "// Verifica se cliente pediu para falar com humano\nconst config    = $('Buscar Config do Agente').first().json;\nconst dados     = $('Extrair Dados').first().json;\nconst mensagem  = (dados.mensagem || '').toLowerCase();\nconst gatilho   = (config.transferir_humano || 'atendente').toLowerCase();\n\nconst querHumano = mensagem.includes(gatilho);\n\n// Verifica horário de atendimento\nconst agora = new Date();\nconst horaAtual = agora.getHours() * 60 + agora.getMinutes();\nconst diasSemana = config.dias_semana || [1,2,3,4,5];\nconst diaAtual = agora.getDay();\n\nconst [hInicio, mInicio] = (config.horario_inicio || '08:00').split(':').map(Number);\nconst [hFim, mFim]       = (config.horario_fim || '18:00').split(':').map(Number);\nconst inicioMin = hInicio * 60 + mInicio;\nconst fimMin    = hFim * 60 + mFim;\n\nconst dentroHorario = diasSemana.includes(diaAtual) && horaAtual >= inicioMin && horaAtual < fimMin;\n\nreturn [{\n  json: {\n    ...dados,\n    config,\n    querHumano,\n    dentroHorario,\n    mensagemForaHora: config.mensagem_fora_hora || 'Olá! Estamos fora do horário de atendimento.',\n  }\n}];"
+      },
+      "id": "verificar-contexto",
+      "name": "Verificar Contexto",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [1120, 200]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "conditions": [
+            {
+              "leftValue": "={{ $json.querHumano }}",
+              "rightValue": false,
+              "operator": { "type": "boolean", "operation": "equals" }
+            },
+            {
+              "leftValue": "={{ $json.dentroHorario }}",
+              "rightValue": true,
+              "operator": { "type": "boolean", "operation": "equals" }
+            }
+          ],
+          "combinator": "and"
+        }
+      },
+      "id": "pode-responder",
+      "name": "Pode Responder?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [1340, 200]
+    },
+    {
+      "parameters": {
+        "url": "=https://flowz-backend.onrender.com/api/v1/agente-ia/n8n/{{ $json.empresaId }}/horarios",
+        "options": {}
+      },
+      "id": "buscar-horarios",
+      "name": "Buscar Horários Disponíveis",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [1560, 100]
+    },
+    {
+      "parameters": {
+        "jsCode": "// Monta o system prompt com todas as informações da empresa\nconst ctx    = $('Verificar Contexto').first().json;\nconst config = ctx.config;\nconst horariosData = $('Buscar Horários Disponíveis').first().json;\nconst slots = (horariosData.slots || []).slice(0, 8); // máx 8 slots\n\nconst slotsTexto = slots.length > 0\n  ? slots.map(s => `- ${s.label}`).join('\\n')\n  : 'Nenhum horário disponível no momento.';\n\n// Histórico formatado\nconst historicoTexto = ctx.historico.map(h => \n  `${h.papel === 'usuario' ? ctx.nomeRemetente : config.nome}: ${h.conteudo}`\n).join('\\n');\n\nconst systemPrompt = `Você é ${config.nome || 'um assistente'}, atendente virtual da empresa ${config.nome_empresa || 'nossa empresa'}.\n\nSEGMENTO: ${config.segmento || 'Não informado'}\nTOM DE VOZ: ${config.tom_voz || 'neutro'}\n\nSOBRE A EMPRESA:\n${config.sobre_empresa || 'Empresa focada em atendimento de qualidade.'}\n\nSERVIÇOS E PRODUTOS:\n${config.servicos || 'Consulte nossos serviços.'}\n\nINSTRUÇÕES ADICIONAIS:\n${config.prompt_sistema || ''}\n\nHORÁRIOS DISPONÍVEIS PARA AGENDAMENTO:\n${slotsTexto}\n\nRETORNO ESPERADO:\nResponda SEMPRE em JSON com este formato:\n{\n  \"resposta\": \"sua resposta para o cliente\",\n  \"acao\": \"nenhuma\" | \"criar_lead\" | \"agendar\",\n  \"lead_titulo\": \"título do lead se acao=criar_lead\",\n  \"agendamento_slot\": \"dataHora ISO se acao=agendar\",\n  \"ignorar\": false\n}\n\nSe o cliente demonstrar interesse em comprar/contratar, use acao=criar_lead.\nSe o cliente quiser agendar, use acao=agendar e coloque o slot escolhido.\nSe for apenas bate-papo, use acao=nenhuma.\nNunca saia do formato JSON.`;\n\nreturn [{\n  json: {\n    ...ctx,\n    systemPrompt,\n    slots,\n  }\n}];"
+      },
+      "id": "montar-prompt",
+      "name": "Montar Prompt",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [1780, 100]
+    },
+    {
+      "parameters": {
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "url": "https://api.openai.com/v1/chat/completions",
+        "sendBody": true,
+        "bodyParameters": {
+          "parameters": [
+            {
+              "name": "model",
+              "value": "={{ $json.config.modelo_ia || 'gpt-4o-mini' }}"
+            },
+            {
+              "name": "temperature",
+              "value": "={{ $json.config.temperatura || 0.7 }}"
+            },
+            {
+              "name": "max_tokens",
+              "value": "={{ $json.config.max_tokens || 500 }}"
+            },
+            {
+              "name": "response_format",
+              "value": "={ \"type\": \"json_object\" }"
+            },
+            {
+              "name": "messages",
+              "value": "=[\n  { \"role\": \"system\", \"content\": \"{{ $json.systemPrompt }}\" },\n  {{ $json.historico.map(h => ({ role: h.papel === 'usuario' ? 'user' : 'assistant', content: h.conteudo })).concat([{ role: 'user', content: $json.mensagem }]).map(m => JSON.stringify(m)).join(',') }}\n]"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "openai-chat",
+      "name": "OpenAI GPT-4o Mini",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [2000, 100]
+    },
+    {
+      "parameters": {
+        "jsCode": "// Extrai e parseia a resposta do OpenAI\nconst oaiResponse = $input.first().json;\nconst ctx = $('Montar Prompt').first().json;\n\nlet resposta = null;\ntry {\n  const content = oaiResponse.choices?.[0]?.message?.content || '{}';\n  resposta = JSON.parse(content);\n} catch(e) {\n  resposta = { resposta: 'Desculpe, tive um problema. Tente novamente!', acao: 'nenhuma', ignorar: false };\n}\n\nreturn [{\n  json: {\n    ...ctx,\n    respostaIA: resposta,\n    textoResposta: resposta.resposta || '',\n    acao: resposta.acao || 'nenhuma',\n    ignorar: resposta.ignorar || false,\n    leadTitulo: resposta.lead_titulo || `Lead - ${ctx.nomeRemetente}`,\n    agendamentoSlot: resposta.agendamento_slot || null,\n  }\n}];"
+      },
+      "id": "processar-resposta",
+      "name": "Processar Resposta IA",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [2220, 100]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "conditions": [
+            {
+              "leftValue": "={{ $json.acao }}",
+              "rightValue": "criar_lead",
+              "operator": { "type": "string", "operation": "equals" }
+            }
+          ]
+        }
+      },
+      "id": "deve-criar-lead",
+      "name": "Deve Criar Lead?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [2440, 0]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "=https://flowz-backend.onrender.com/api/v1/agente-ia/n8n/{{ $json.empresaId }}/lead",
+        "sendBody": true,
+        "bodyParameters": {
+          "parameters": [
+            { "name": "titulo",        "value": "={{ $json.leadTitulo }}" },
+            { "name": "nome_contato",  "value": "={{ $json.nomeRemetente }}" },
+            { "name": "telefone",      "value": "={{ $json.telefone }}" },
+            { "name": "notas",         "value": "=Primeiro contato via WhatsApp: {{ $json.mensagem }}" }
+          ]
+        },
+        "options": {}
+      },
+      "id": "criar-lead",
+      "name": "Criar Lead no Flowz",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [2660, -100]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "conditions": [
+            {
+              "leftValue": "={{ $json.acao }}",
+              "rightValue": "agendar",
+              "operator": { "type": "string", "operation": "equals" }
+            }
+          ]
+        }
+      },
+      "id": "deve-agendar",
+      "name": "Deve Agendar?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [2440, 200]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "=https://flowz-backend.onrender.com/api/v1/agente-ia/n8n/{{ $json.empresaId }}/agendamento",
+        "sendBody": true,
+        "bodyParameters": {
+          "parameters": [
+            { "name": "titulo",        "value": "=Consulta — {{ $json.nomeRemetente }}" },
+            { "name": "data_hora",     "value": "={{ $json.agendamentoSlot }}" },
+            { "name": "nome_contato",  "value": "={{ $json.nomeRemetente }}" },
+            { "name": "telefone",      "value": "={{ $json.telefone }}" }
+          ]
+        },
+        "options": {}
+      },
+      "id": "criar-agendamento",
+      "name": "Criar Agendamento no Flowz",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [2660, 200]
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={\n  \"resposta\": \"{{ $json.textoResposta }}\",\n  \"ignorar\": false\n}",
+        "options": {}
+      },
+      "id": "responder-flowz",
+      "name": "Responder ao Flowz",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1,
+      "position": [2880, 100]
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={\n  \"resposta\": \"{{ $json.mensagemForaHora }}\",\n  \"ignorar\": false\n}",
+        "options": {}
+      },
+      "id": "responder-fora-hora",
+      "name": "Responder Fora do Horário",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1,
+      "position": [1560, 380]
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "{ \"ignorar\": true }",
+        "options": {}
+      },
+      "id": "ignorar-inativo",
+      "name": "Ignorar (Agente Inativo)",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1,
+      "position": [1120, 420]
+    }
+  ],
+  "connections": {
+    "Webhook Entrada": {
+      "main": [[{ "node": "Extrair Dados", "type": "main", "index": 0 }]]
+    },
+    "Extrair Dados": {
+      "main": [[{ "node": "Buscar Config do Agente", "type": "main", "index": 0 }]]
+    },
+    "Buscar Config do Agente": {
+      "main": [[{ "node": "Agente Ativo?", "type": "main", "index": 0 }]]
+    },
+    "Agente Ativo?": {
+      "main": [
+        [{ "node": "Verificar Contexto", "type": "main", "index": 0 }],
+        [{ "node": "Ignorar (Agente Inativo)", "type": "main", "index": 0 }]
+      ]
+    },
+    "Verificar Contexto": {
+      "main": [[{ "node": "Pode Responder?", "type": "main", "index": 0 }]]
+    },
+    "Pode Responder?": {
+      "main": [
+        [{ "node": "Buscar Horários Disponíveis", "type": "main", "index": 0 }],
+        [{ "node": "Responder Fora do Horário", "type": "main", "index": 0 }]
+      ]
+    },
+    "Buscar Horários Disponíveis": {
+      "main": [[{ "node": "Montar Prompt", "type": "main", "index": 0 }]]
+    },
+    "Montar Prompt": {
+      "main": [[{ "node": "OpenAI GPT-4o Mini", "type": "main", "index": 0 }]]
+    },
+    "OpenAI GPT-4o Mini": {
+      "main": [[{ "node": "Processar Resposta IA", "type": "main", "index": 0 }]]
+    },
+    "Processar Resposta IA": {
+      "main": [[
+        { "node": "Deve Criar Lead?", "type": "main", "index": 0 },
+        { "node": "Deve Agendar?", "type": "main", "index": 0 },
+        { "node": "Responder ao Flowz", "type": "main", "index": 0 }
+      ]]
+    },
+    "Deve Criar Lead?": {
+      "main": [
+        [{ "node": "Criar Lead no Flowz", "type": "main", "index": 0 }],
+        []
+      ]
+    },
+    "Deve Agendar?": {
+      "main": [
+        [{ "node": "Criar Agendamento no Flowz", "type": "main", "index": 0 }],
+        []
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "staticData": null,
+  "tags": ["flowz", "whatsapp", "agente-ia"],
+  "triggerCount": 1,
+  "meta": {
+    "templateCredsSetupCompleted": false,
+    "instanceId": "flowz-agente-ia-v1"
+  }
+}
