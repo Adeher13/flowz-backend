@@ -92,6 +92,7 @@ export async function atualizarLead(req, res, next) {
     const {
       titulo, contato_id, valor, responsavel_id,
       prioridade, data_fechamento, perdido, motivo_perda,
+      etapa_id, pipeline_id,
     } = req.body
 
     const { data, error } = await supabaseAdmin
@@ -105,6 +106,8 @@ export async function atualizarLead(req, res, next) {
         data_fechamento,
         perdido,
         motivo_perda,
+        ...(etapa_id && { etapa_id }),
+        ...(pipeline_id && { pipeline_id }),
       })
       .eq('id', id)
       .eq('empresa_id', req.empresaId)
