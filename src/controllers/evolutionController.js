@@ -198,12 +198,21 @@ export async function listarConversas(req, res, next) {
   try {
     const empresaId = req.empresaId
 
-    // Busca última mensagem de cada telefone (window function via subquery)
-    const { data, error } = await supabaseAdmin
+    // Busca instância ativa da empresa para filtrar apenas mensagens dela
+    const instancia = await getInstanciaDaEmpresa(empresaId)
+
+    // Busca última mensagem de cada telefone filtrada pela instância ativa
+    let query = supabaseAdmin
       .from('mensagens_whatsapp')
       .select('telefone, jid, texto, de_mim, criado_em')
       .eq('empresa_id', empresaId)
       .order('criado_em', { ascending: false })
+
+    if (instancia?.instance_name) {
+      query = query.eq('instance_name', instancia.instance_name)
+    }
+
+    const { data, error } = await query
 
     if (error) throw error
 
@@ -257,6 +266,9 @@ export async function listarMensagens(req, res, next) {
     const limite = Math.min(parseInt(req.query.limite) || 100, 500)
     const antes = req.query.antes // timestamp ISO ou ms para paginação para trás
 
+    // Filtra pela instância ativa para não misturar históricos de números diferentes
+    const instanciaAtiva = await getInstanciaDaEmpresa(empresaId)
+
     let query = supabaseAdmin
       .from('mensagens_whatsapp')
       .select('*')
@@ -264,6 +276,10 @@ export async function listarMensagens(req, res, next) {
       .eq('telefone', telefone)
       .order('criado_em', { ascending: false }) // mais recentes primeiro
       .limit(limite)
+
+    if (instanciaAtiva?.instance_name) {
+      query = query.eq('instance_name', instanciaAtiva.instance_name)
+    }
 
     if (antes) {
       // Busca mensagens anteriores ao cursor (para carregar mais antigas)

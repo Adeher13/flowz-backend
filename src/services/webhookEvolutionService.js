@@ -160,6 +160,7 @@ async function handleMessagesUpsert(instanceName, empresaId, data) {
         deMim,
         timestamp,
         tipo,
+        instanceName,
       })
     } catch (err) {
       // Ignora duplicatas (upsert por mensagem_id)
@@ -328,6 +329,7 @@ async function processarComAgenteIA({ instanceName, empresaId, jid, nomeRemetent
         deMim: true,
         timestamp: Date.now(),
         tipo: 'texto',
+        instanceName,
       })
 
       console.log(`[Agente IA] Resposta enviada para ${jid} (empresa ${empresaId})`)

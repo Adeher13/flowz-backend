@@ -109,7 +109,7 @@ export async function buscarHistoricoParaIA(empresaId, jid, limite = 20) {
 // ============================================================
 
 // Salva mensagem no Supabase para histórico persistente
-export async function salvarMensagem({ empresaId, jid, mensagemId, texto, deMim, timestamp, tipo = 'texto' }) {
+export async function salvarMensagem({ empresaId, jid, mensagemId, texto, deMim, timestamp, tipo = 'texto', instanceName = null }) {
   const telefone = jid.replace('@s.whatsapp.net', '').replace(/\D/g, '')
 
   await supabaseAdmin
@@ -122,6 +122,7 @@ export async function salvarMensagem({ empresaId, jid, mensagemId, texto, deMim,
       texto,
       de_mim: deMim,
       tipo,
+      instance_name: instanceName,
       criado_em: new Date(timestamp).toISOString(),
     }, { onConflict: 'mensagem_id' })
     .throwOnError()
