@@ -246,29 +246,43 @@ export async function listarConversas(req, res, next) {
 }
 
 // GET /api/v1/whatsapp-evo/conversas/:jid/mensagens
+// Parâmetros:
+//   ?limite=100         — quantas mensagens retornar (padrão 100, max 500)
+//   ?antes=<timestamp>  — cursor: retorna mensagens anteriores a este timestamp (ISO ou ms)
 export async function listarMensagens(req, res, next) {
   try {
     const empresaId = req.empresaId
     const { jid } = req.params
     const telefone = jid.replace('@s.whatsapp.net', '').replace(/\D/g, '')
-    const limite = Math.min(parseInt(req.query.limite) || 200, 500)
-    const offset = parseInt(req.query.offset) || 0
+    const limite = Math.min(parseInt(req.query.limite) || 100, 500)
+    const antes = req.query.antes // timestamp ISO ou ms para paginação para trás
 
-    const { data, error } = await supabaseAdmin
+    let query = supabaseAdmin
       .from('mensagens_whatsapp')
       .select('*')
       .eq('empresa_id', empresaId)
       .eq('telefone', telefone)
-      .order('criado_em', { ascending: true })
-      .range(offset, offset + limite - 1)
+      .order('criado_em', { ascending: false }) // mais recentes primeiro
+      .limit(limite)
 
+    if (antes) {
+      // Busca mensagens anteriores ao cursor (para carregar mais antigas)
+      const dt = isNaN(Number(antes))
+        ? antes
+        : new Date(Number(antes)).toISOString()
+      query = query.lt('criado_em', dt)
+    }
+
+    const { data, error } = await query
     if (error) throw error
 
-    const mensagens = (data || []).map(m => ({
+    // Reverte para ordem cronológica (mais antiga → mais recente)
+    const mensagens = (data || []).reverse().map(m => ({
       id: m.mensagem_id,
       de: m.de_mim ? 'eu' : m.jid,
       texto: m.texto,
       timestamp: new Date(m.criado_em).getTime(),
+      criado_em: m.criado_em,
       fromMe: m.de_mim,
       status: m.de_mim ? 'enviado' : 'recebido',
       tipo: m.tipo || 'texto',
