@@ -11,6 +11,7 @@ import {
   configurarWebhook,
   getWebhookConfig,
   evoFetch,
+  buscarFotoPerfil,
 } from '../services/evolutionService.js'
 import { processarWebhookEvo } from '../services/webhookEvolutionService.js'
 import { supabaseAdmin } from '../services/supabaseService.js'
@@ -296,6 +297,25 @@ export async function enviarParaConversa(req, res, next) {
     res.json({ ok: true })
   } catch (err) {
     next(err)
+  }
+}
+
+// ============================================================
+// FOTO DE PERFIL
+// ============================================================
+
+// GET /api/v1/whatsapp-evo/contatos/:numero/foto
+export async function getFotoPerfil(req, res, next) {
+  try {
+    const empresaId = req.empresaId
+    const { numero } = req.params
+    const instancia = await getInstanciaDaEmpresa(empresaId)
+    if (!instancia) return res.status(404).json({ error: 'Instância não configurada.' })
+
+    const data = await buscarFotoPerfil(instancia.instance_name, numero, empresaId)
+    res.json({ url: data?.profilePictureUrl || null })
+  } catch {
+    res.json({ url: null })
   }
 }
 

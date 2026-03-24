@@ -218,6 +218,18 @@ export async function enviarMidia({ instanceName, numero, tipo, url, legenda, no
 }
 
 // ============================================================
+// FOTO DE PERFIL
+// ============================================================
+
+export async function buscarFotoPerfil(instanceName, numero, empresaId) {
+  const num = numero.replace(/\D/g, '')
+  return evoFetch(`/chat/fetchProfilePictureUrl/${instanceName}`, {
+    method: 'POST',
+    body: JSON.stringify({ number: num }),
+  }, empresaId)
+}
+
+// ============================================================
 // CONFIGURAÇÃO DE WEBHOOK
 // ============================================================
 

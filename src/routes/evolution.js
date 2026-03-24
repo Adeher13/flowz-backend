@@ -16,6 +16,7 @@ import {
   configurarWebhookInstancia,
   getWebhook,
   importarHistorico,
+  getFotoPerfil,
 } from '../controllers/evolutionController.js'
 
 const router = Router()
@@ -40,6 +41,9 @@ router.post('/conversas/:jid/enviar',   authMiddleware, enviarParaConversa)
 
 // ── Envio avulso (requer auth) ───────────────────────────────
 router.post('/enviar',               authMiddleware, enviar)
+
+// ── Foto de perfil ───────────────────────────────────────────
+router.get('/contatos/:numero/foto', authMiddleware, getFotoPerfil)
 
 // ── Importar histórico da Evolution API ─────────────────────
 router.post('/historico/importar',   authMiddleware, importarHistorico)
