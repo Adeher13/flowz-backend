@@ -10,6 +10,7 @@ import {
   enviarTexto,
   configurarWebhook,
   getWebhookConfig,
+  evoFetch,
 } from '../services/evolutionService.js'
 import { processarWebhookEvo } from '../services/webhookEvolutionService.js'
 import { supabaseAdmin } from '../services/supabaseService.js'
@@ -296,6 +297,85 @@ export async function enviarParaConversa(req, res, next) {
   } catch (err) {
     next(err)
   }
+}
+
+// ============================================================
+// IMPORTAR HISTÓRICO
+// ============================================================
+
+// POST /api/v1/whatsapp-evo/historico/importar
+export async function importarHistorico(req, res, next) {
+  try {
+    const empresaId = req.empresaId
+    const instancia = await getInstanciaDaEmpresa(empresaId)
+    if (!instancia) return res.status(404).json({ error: 'Instância não configurada.' })
+
+    const { paginas = 10 } = req.body // quantas páginas importar (50 msgs por página)
+
+    res.json({ ok: true, mensagem: `Importação iniciada (${paginas} páginas)` })
+
+    // Processa em background
+    importarPaginas(instancia.instance_name, empresaId, paginas).catch(err => {
+      console.error('[Histórico] Erro na importação:', err.message)
+    })
+  } catch (err) {
+    next(err)
+  }
+}
+
+async function importarPaginas(instanceName, empresaId, totalPaginas) {
+  const { salvarMensagem } = await import('../services/n8nService.js')
+  let importadas = 0
+
+  for (let page = 1; page <= totalPaginas; page++) {
+    try {
+      const data = await evoFetch(`/chat/findMessages/${instanceName}`, {
+        method: 'POST',
+        body: JSON.stringify({ where: {}, limit: 50, offset: (page - 1) * 50 }),
+      }, empresaId)
+
+      const msgs = data?.messages?.records || []
+      if (msgs.length === 0) break
+
+      for (const msg of msgs) {
+        const jid = msg.key?.remoteJidAlt || msg.key?.remoteJid
+        if (!jid || jid.endsWith('@g.us') || jid === 'status@broadcast') continue
+
+        const m = msg.message || {}
+        const texto =
+          m.conversation ||
+          m.extendedTextMessage?.text ||
+          m.imageMessage?.caption ||
+          m.videoMessage?.caption ||
+          (m.imageMessage ? '📷 Imagem' : null) ||
+          (m.videoMessage ? '🎥 Vídeo' : null) ||
+          (m.pttMessage || m.audioMessage ? '🎤 Áudio' : null) ||
+          (m.documentMessage ? `📄 ${m.documentMessage.fileName || 'Documento'}` : null) ||
+          (m.stickerMessage ? '🔖 Sticker' : null) ||
+          null
+
+        if (!texto) continue
+
+        await salvarMensagem({
+          empresaId,
+          jid,
+          mensagemId: msg.key?.id || `hist-${Date.now()}-${Math.random()}`,
+          texto,
+          deMim: msg.key?.fromMe || false,
+          timestamp: (msg.messageTimestamp || Date.now() / 1000) * 1000,
+          tipo: m.imageMessage ? 'imagem' : m.videoMessage ? 'video' : (m.pttMessage || m.audioMessage) ? 'audio' : 'texto',
+        }).catch(() => {}) // ignora duplicatas
+
+        importadas++
+      }
+
+      console.log(`[Histórico] Página ${page}/${totalPaginas} — ${importadas} msgs importadas`)
+    } catch (err) {
+      console.warn(`[Histórico] Erro na página ${page}: ${err.message}`)
+    }
+  }
+
+  console.log(`[Histórico] Importação concluída: ${importadas} mensagens`)
 }
 
 // ============================================================

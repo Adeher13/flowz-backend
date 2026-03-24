@@ -40,7 +40,7 @@ export function invalidarConfigCache(empresaId) {
 // CLIENTE HTTP — wrapper para chamadas à Evolution API
 // ============================================================
 
-async function evoFetch(path, options = {}, empresaId = null) {
+export async function evoFetch(path, options = {}, empresaId = null) {
   let baseUrl, apiKey
 
   if (empresaId) {

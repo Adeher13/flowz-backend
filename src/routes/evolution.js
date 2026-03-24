@@ -15,6 +15,7 @@ import {
   enviarParaConversa,
   configurarWebhookInstancia,
   getWebhook,
+  importarHistorico,
 } from '../controllers/evolutionController.js'
 
 const router = Router()
@@ -39,5 +40,8 @@ router.post('/conversas/:jid/enviar',   authMiddleware, enviarParaConversa)
 
 // ── Envio avulso (requer auth) ───────────────────────────────
 router.post('/enviar',               authMiddleware, enviar)
+
+// ── Importar histórico da Evolution API ─────────────────────
+router.post('/historico/importar',   authMiddleware, importarHistorico)
 
 export default router
