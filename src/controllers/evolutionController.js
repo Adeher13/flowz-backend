@@ -315,6 +315,35 @@ export async function enviarParaConversa(req, res, next) {
 }
 
 // ============================================================
+// MÍDIA DE MENSAGEM
+// ============================================================
+
+// GET /api/v1/whatsapp-evo/mensagens/:msgId/midia
+// Busca mídia (imagem/áudio/vídeo/sticker/documento) da Evolution API e retorna base64
+export async function getMidiaMensagem(req, res, next) {
+  try {
+    const empresaId = req.empresaId
+    const { msgId } = req.params
+
+    const instancia = await getInstanciaDaEmpresa(empresaId)
+    if (!instancia) return res.status(404).json({ error: 'Instância não configurada.' })
+
+    const data = await evoFetch(`/chat/getBase64FromMediaMessage/${instancia.instance_name}`, {
+      method: 'POST',
+      body: JSON.stringify({ message: { key: { id: msgId } }, convertToMp4: false }),
+    }, empresaId)
+
+    res.json({
+      base64: data?.base64 || null,
+      mimetype: data?.mimetype || null,
+      fileName: data?.fileName || null,
+    })
+  } catch (err) {
+    res.json({ base64: null, mimetype: null })
+  }
+}
+
+// ============================================================
 // FOTO DE PERFIL
 // ============================================================
 

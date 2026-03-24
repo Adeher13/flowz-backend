@@ -17,6 +17,7 @@ import {
   getWebhook,
   importarHistorico,
   getFotoPerfil,
+  getMidiaMensagem,
 } from '../controllers/evolutionController.js'
 
 const router = Router()
@@ -41,6 +42,9 @@ router.post('/conversas/:jid/enviar',   authMiddleware, enviarParaConversa)
 
 // ── Envio avulso (requer auth) ───────────────────────────────
 router.post('/enviar',               authMiddleware, enviar)
+
+// ── Mídia de mensagem ────────────────────────────────────────
+router.get('/mensagens/:msgId/midia', authMiddleware, getMidiaMensagem)
 
 // ── Foto de perfil ───────────────────────────────────────────
 router.get('/contatos/:numero/foto', authMiddleware, getFotoPerfil)
