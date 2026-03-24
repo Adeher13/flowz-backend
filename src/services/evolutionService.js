@@ -226,19 +226,21 @@ export async function configurarWebhook(instanceName, empresaId) {
   return evoFetch(`/webhook/set/${instanceName}`, {
     method: 'POST',
     body: JSON.stringify({
-      url: webhookUrl,
-      enabled: true,
-      webhookByEvents: false,
-      webhookBase64: false,
-      events: [
-        'MESSAGES_UPSERT',
-        'MESSAGES_UPDATE',
-        'MESSAGES_DELETE',
-        'CONNECTION_UPDATE',
-        'QRCODE_UPDATED',
-        'CHATS_UPSERT',
-        'CONTACTS_UPSERT',
-      ],
+      webhook: {
+        enabled: true,
+        url: webhookUrl,
+        webhookByEvents: false,
+        webhookBase64: false,
+        events: [
+          'MESSAGES_UPSERT',
+          'MESSAGES_UPDATE',
+          'MESSAGES_DELETE',
+          'CONNECTION_UPDATE',
+          'QRCODE_UPDATED',
+          'CHATS_UPSERT',
+          'CONTACTS_UPSERT',
+        ],
+      },
     }),
   }, empresaId)
 }
