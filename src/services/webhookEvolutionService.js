@@ -37,6 +37,11 @@ export async function processarWebhookEvo(payload) {
 
   if (!event || !instanceName) return
 
+  // Normaliza o evento para maiúsculo com underscore (ex: "messages.upsert" → "MESSAGES_UPSERT")
+  const eventNorm = event.toUpperCase().replace(/\./g, '_')
+
+  console.log(`[Webhook] Evento recebido: ${event} → ${eventNorm} (instância: ${instanceName})`)
+
   // Busca a empresa dona desta instância
   const instancia = await getInstanciaPorNome(instanceName)
   if (!instancia) {
@@ -46,7 +51,7 @@ export async function processarWebhookEvo(payload) {
 
   const empresaId = instancia.empresa_id
 
-  switch (event) {
+  switch (eventNorm) {
     case 'CONNECTION_UPDATE':
       await handleConnectionUpdate(instanceName, empresaId, data)
       break
