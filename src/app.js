@@ -58,7 +58,10 @@ app.use(express.json({ limit: '1mb' }))
 
 // Webhook Evolution API — sem auth, registrado ANTES das rotas autenticadas
 // A Evolution API chama esta rota de fora (POST direto sem token)
-app.post('/api/v1/whatsapp/webhook', receberWebhook)
+app.post('/api/v1/whatsapp/webhook', (req, res, next) => {
+  console.log('[Webhook] POST recebido:', JSON.stringify(req.body).slice(0, 200))
+  next()
+}, receberWebhook)
 
 app.use('/api/v1/auth',         authRoutes)
 app.use('/api/v1/leads',        leadsRoutes)
