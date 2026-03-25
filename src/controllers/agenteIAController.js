@@ -68,14 +68,30 @@ export async function salvarAgente(req, res) {
     ...(dias_semana       !== undefined && { dias_semana }),
     ...(mensagem_fora_hora !== undefined && { mensagem_fora_hora }),
     ...(prompt_sistema    !== undefined && { prompt_sistema }),
-    atualizado_em: new Date().toISOString(),
   }
 
-  const { data, error } = await supabaseAdmin
+  // Verifica se já existe registro para a empresa
+  const { data: existente } = await supabaseAdmin
     .from('agentes_ia')
-    .upsert(payload, { onConflict: 'empresa_id' })
-    .select()
-    .single()
+    .select('id')
+    .eq('empresa_id', empresaId)
+    .maybeSingle()
+
+  let data, error
+  if (existente) {
+    ;({ data, error } = await supabaseAdmin
+      .from('agentes_ia')
+      .update(payload)
+      .eq('empresa_id', empresaId)
+      .select()
+      .single())
+  } else {
+    ;({ data, error } = await supabaseAdmin
+      .from('agentes_ia')
+      .insert(payload)
+      .select()
+      .single())
+  }
 
   if (error) return res.status(500).json({ error: error.message })
 
