@@ -118,24 +118,33 @@ export async function getDisponibilidade(req, res) {
 
 export async function salvarDisponibilidade(req, res) {
   const empresaId = req.empresaId
-  // Recebe array: [{ dia_semana, hora_inicio, hora_fim, ativo }]
+  // Recebe array: [{ dia_semana, hora, ativo }]
   const { disponibilidade } = req.body
 
   if (!Array.isArray(disponibilidade)) {
     return res.status(400).json({ error: 'Envie um array de disponibilidade.' })
   }
 
+  // Apaga slots anteriores da empresa e reinsere
+  await supabaseAdmin
+    .from('disponibilidade_agente')
+    .delete()
+    .eq('empresa_id', empresaId)
+
+  if (disponibilidade.length === 0) {
+    return res.json([])
+  }
+
   const payload = disponibilidade.map(d => ({
-    empresa_id:  empresaId,
-    dia_semana:  d.dia_semana,
-    hora_inicio: d.hora_inicio,
-    hora_fim:    d.hora_fim,
-    ativo:       d.ativo ?? true,
+    empresa_id: empresaId,
+    dia_semana: d.dia_semana,
+    hora:       d.hora,
+    ativo:      d.ativo ?? true,
   }))
 
   const { data, error } = await supabaseAdmin
     .from('disponibilidade_agente')
-    .upsert(payload, { onConflict: 'empresa_id,dia_semana' })
+    .insert(payload)
     .select()
 
   if (error) return res.status(500).json({ error: error.message })
