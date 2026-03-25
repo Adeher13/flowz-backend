@@ -2,6 +2,7 @@
 import { supabaseAdmin } from '../services/supabaseService.js'
 import { createError } from '../middlewares/errorHandler.js'
 import { enviarConfirmacaoAgendamento } from '../services/whatsappService.js'
+import { criarEventoCalendar, deletarEventoCalendar } from './googleCalendarController.js'
 
 // Lista agendamentos com filtro de período
 export async function listarAgendamentos(req, res, next) {
@@ -79,6 +80,26 @@ export async function criarAgendamento(req, res, next) {
         tipo: 'reuniao',
         descricao: `Agendamento criado: "${titulo}" para ${new Date(data_hora).toLocaleString('pt-BR')}.`,
       })
+    }
+
+    // Sincroniza com Google Calendar (se conectado)
+    try {
+      const googleEventId = await criarEventoCalendar(req.empresaId, {
+        titulo,
+        data_hora,
+        duracao_min: duracao_minutos || 60,
+        notas: descricao,
+        contato: data.contato,
+      })
+      if (googleEventId) {
+        await supabaseAdmin
+          .from('agendamentos')
+          .update({ google_event_id: googleEventId })
+          .eq('id', data.id)
+        data.google_event_id = googleEventId
+      }
+    } catch (gcErr) {
+      console.error('Erro ao sincronizar Google Calendar:', gcErr)
     }
 
     res.status(201).json(data)

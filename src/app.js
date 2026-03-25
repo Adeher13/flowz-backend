@@ -14,7 +14,8 @@ import authRoutes       from './routes/auth.js'
 import dashboardRoutes  from './routes/dashboard.js'
 import whatsappRoutes   from './routes/whatsapp.js'
 import evolutionRoutes  from './routes/evolution.js'
-import agenteIARoutes   from './routes/agenteIA.js'
+import agenteIARoutes        from './routes/agenteIA.js'
+import googleCalendarRoutes  from './routes/googleCalendar.js'
 import { errorHandler } from './middlewares/errorHandler.js'
 import { addWsClientEvo } from './services/webhookEvolutionService.js'
 import { receberWebhook } from './controllers/evolutionController.js'
@@ -71,7 +72,8 @@ app.use('/api/v1/agenda',       agendaRoutes)
 app.use('/api/v1/dashboard',    dashboardRoutes)
 app.use('/api/v1/whatsapp',     whatsappRoutes)        // Baileys (legado)
 app.use('/api/v1/whatsapp-evo', evolutionRoutes)       // Evolution API (novo)
-app.use('/api/v1/agente-ia',    agenteIARoutes)        // Agente IA
+app.use('/api/v1/agente-ia',       agenteIARoutes)        // Agente IA
+app.use('/api/v1/google-calendar', googleCalendarRoutes)  // Google Calendar
 
 app.get('/health', (req, res) => {
   res.json({ status: 'ok', versao: '1.0.0', timestamp: new Date().toISOString() })
