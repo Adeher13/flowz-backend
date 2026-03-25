@@ -6,6 +6,8 @@ import {
   salvarAgente,
   getDisponibilidade,
   salvarDisponibilidade,
+  getDatasEspecificas,
+  salvarDatasEspecificas,
   getHorariosDisponiveisN8N,
   criarAgendamentoN8N,
   criarLeadN8N,
@@ -19,6 +21,8 @@ router.get('/',               authMiddleware, getAgente)
 router.post('/',              authMiddleware, salvarAgente)
 router.get('/disponibilidade', authMiddleware, getDisponibilidade)
 router.post('/disponibilidade', authMiddleware, salvarDisponibilidade)
+router.get('/datas-especificas', authMiddleware, getDatasEspecificas)
+router.post('/datas-especificas', authMiddleware, salvarDatasEspecificas)
 
 // ── Endpoints públicos para o N8N (sem auth de usuário) ─────
 // N8N usa empresa_id no path + chama sem token de usuário

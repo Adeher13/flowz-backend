@@ -152,6 +152,51 @@ export async function salvarDisponibilidade(req, res) {
 }
 
 // ============================================================
+// DATAS ESPECÍFICAS
+// ============================================================
+
+export async function getDatasEspecificas(req, res) {
+  const empresaId = req.empresaId
+  const { data, error } = await supabaseAdmin
+    .from('disponibilidade_datas')
+    .select('*')
+    .eq('empresa_id', empresaId)
+    .order('data')
+    .order('hora')
+  if (error) return res.status(500).json({ error: error.message })
+  return res.json(data || [])
+}
+
+export async function salvarDatasEspecificas(req, res) {
+  const empresaId = req.empresaId
+  const { datas } = req.body
+
+  if (!Array.isArray(datas)) {
+    return res.status(400).json({ error: 'Envie um array de datas.' })
+  }
+
+  // Apaga tudo e reinsere
+  await supabaseAdmin.from('disponibilidade_datas').delete().eq('empresa_id', empresaId)
+
+  if (datas.length === 0) return res.json([])
+
+  const payload = datas.map(d => ({
+    empresa_id: empresaId,
+    data: d.data,
+    hora: d.hora,
+    ativo: d.ativo ?? true,
+  }))
+
+  const { data, error } = await supabaseAdmin
+    .from('disponibilidade_datas')
+    .insert(payload)
+    .select()
+
+  if (error) return res.status(500).json({ error: error.message })
+  return res.json(data)
+}
+
+// ============================================================
 // ENDPOINT PÚBLICO — N8N consulta horários disponíveis
 // Retorna slots livres para a semana atual (sem auth de usuário)
 // ============================================================
