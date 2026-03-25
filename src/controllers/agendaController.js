@@ -47,6 +47,12 @@ export async function criarAgendamento(req, res, next) {
       throw createError('Título e data/hora são obrigatórios', 400)
     }
 
+    // Garante que data_hora sem timezone seja interpretada como Brasília (UTC-3)
+    let dataHoraISO = data_hora
+    if (data_hora && !data_hora.includes('Z') && !data_hora.includes('+') && !data_hora.match(/-\d{2}:\d{2}$/)) {
+      dataHoraISO = data_hora + '-03:00'
+    }
+
     const { data, error } = await supabaseAdmin
       .from('agendamentos')
       .insert({
@@ -56,7 +62,7 @@ export async function criarAgendamento(req, res, next) {
         usuario_id: usuario_id || req.usuario.id,
         titulo,
         descricao: descricao || null,
-        data_hora,
+        data_hora: dataHoraISO,
         duracao_minutos: duracao_minutos || 60,
         status: 'pendente',
       })
@@ -86,7 +92,7 @@ export async function criarAgendamento(req, res, next) {
     try {
       const googleEventId = await criarEventoCalendar(req.empresaId, {
         titulo,
-        data_hora,
+        data_hora: dataHoraISO,
         duracao_min: duracao_minutos || 60,
         notas: descricao,
         contato: data.contato,
